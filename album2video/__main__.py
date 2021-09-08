@@ -9,7 +9,10 @@ Options:
     -v --version            Show version
     -d --debug              Verbose logging
     -n --notxt              Don't output timestamps.txt
+    -t --test               Run program without writing videofile (for test purposes)
     --title=TITLE           Set title beforehand
+    --imgmagick=PATH        Set path to ImageMagick & exit
+
 
 
 Arguments:
@@ -26,22 +29,26 @@ Examples:
     album2video --title TheAlbumTitle path/to/mp3 path/to/mp3 path/to/img 
 
 * Requires path to img or path to folder with img
+
+(Needs ImageMagick installed)
 """
 
-import os, docopt, logging
-import moviepy.editor as mpy
-
-from PathTool import getPath
-
-appversion = '0.0.1'
-
-arguments = docopt.docopt(__doc__, version=f"Album2Video {appversion}")
-
-vcodec = "libx264"
-videoquality = "24"
-compression = "slow"
-
+import os, pkg_resources, docopt, re, logging
 log = logging.getLogger(__name__)
+
+# hiding pil debug logs
+pil_logger = logging.getLogger('PIL')
+pil_logger.setLevel(logging.INFO)
+
+__version__ = pkg_resources.require('album2video')[0].version
+
+arguments = docopt.docopt(__doc__, version=f"Album2Video {__version__}")
+
+from pathlib import Path
+from .PathTool import getPath
+from .config import parsing
+
+cfg = parsing()
 
 if arguments['--debug']:
     LOG_FORMAT = "\n%(levelname)s | %(asctime)s §\n%(message)s\n"
@@ -57,13 +64,58 @@ if arguments['--debug']:
     
     log.debug(f'Docopt:\n {arguments}')
 
+    def listDict(dict: dict):
+        itemstring = '-'*32+'\n'
+        for key, value in dict.items():
+            itemstring += f"{key}: {value} - type: {type(value)}\n"
+        itemstring += '-'*32+'\n'
+        return itemstring
+    
+    log.debug(f'Config:\n {listDict(cfg)}')
 
 
-imgext = ('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif')
-audext = ('.wav', '.mp3', '.flac', '.m4a')
+if arguments['--imgmagick']:
+    import moviepy
 
+    # moviepy.__file__ points to moviepy\__init__.py
+    # so we split '__init__.py' from pathname
+    moviepy_path = os.path.split(moviepy.__file__)[0]
+    # join it with the config filename
+    moviepy_config = os.path.join(moviepy_path, 'config_defaults.py')
 
+    arguments['--debug'] and log.debug('MoviePyConfig: ' + moviepy_config)
 
+    # assign imgmagick path variable
+    imgmagick = getPath(arguments['--imgmagick'])
+    
+    # line with imagemagick_binary found starts false
+    found = False
+
+    with open(moviepy_config, 'r') as f:
+        lines = f.readlines()
+    
+    with open(moviepy_config, 'w') as f:
+        for index, line in enumerate(lines):
+            if line.startswith('IMAGEMAGICK_BINARY'):
+                arguments['--debug'] and log.debug(f'Setting IMAGEMAGICK_BINARY path to: {imgmagick}')
+                lines[index] = f"IMAGEMAGICK_BINARY = os.getenv('IMAGEMAGICK_BINARY', '{imgmagick}')"
+                found = True
+        
+        if found == False:
+            arguments['--debug'] and log.debug(f'Creating IMAGEMAGICK_BINARY = {imgmagick}')
+            lines.append(f"IMAGEMAGICK_BINARY = os.getenv('IMAGEMAGICK_BINARY', '{imgmagick}')")
+
+        f.writelines(lines)
+    
+    print('ImgMagick set... exiting\n')
+    exit()
+
+try:
+    from moviepy import editor as mpy
+except OSError as e:
+    print(e)
+    print('\nSet proper imagemagick_binary path with: album2video --imgmagick path/to/binary\n')
+    exit()
 
 
 
@@ -90,21 +142,24 @@ def main():
 
                 ### For file in directory... parse by extension
                 for file in foldercontent:
-                    if file.lower().endswith(imgext):
+                    if file.lower().endswith(cfg['imgext']):
                         bgpath = getPath(file)
                     
-                    elif file.lower().endswith(audext):
+                    elif file.lower().endswith(cfg['audext']):
                         songs.append(getPath(file))
 
             ### If path is file... parse by extension
             elif os.path.isfile(path):
                 file = path
-                if file.lower().endswith(imgext):
+                if file.lower().endswith(cfg['imgext']):
                     bgpath = getPath(file)
                     
-                elif file.lower().endswith(audext):
+                elif file.lower().endswith(cfg['audext']):
                     songs.append(getPath(file))
-
+    ### If no URL given exit
+    else:
+        return
+    
     ### If no img given exit
     if bgpath == '':
         print('No img given!\nExiting...')
@@ -125,11 +180,8 @@ def main():
 
         return {"clip": clip, "duration": duration}
 
-    audios = []
-
     ### Parse each song and append to audios[]
-    for song in songs:
-        audios.append(getAudio(song))
+    audios = [getAudio(song) for song in songs]
 
 
     def getTotalLength(audios):
@@ -205,34 +257,33 @@ def main():
         return stamp 
 
     # getting tracknames
-    num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-    tracknames = []
-    for song in songs:
+    def getTrackName(song):
         trackname = os.path.basename(song)
-        for ext in audext:
+        for ext in cfg['audext']:
             trackname = trackname.replace(ext, '')
         
-        if trackname[0] in num and trackname[1:4] in '.-':
-            arguments['--debug'] and log.debug('Track number parsing.')
+        arguments['--debug'] and cfg['show_search_result'] and log.debug('Separator search range:' + trackname[1:cfg['ssr']])
+
+        ### Parse tracknames
+        if trackname[0] in [str(i) for i in range(10)] and any(separator in trackname[1:cfg['ssr']] for separator in cfg['separator']):
             try:
-                trackname = trackname.split('.', 1)
-                print(trackname)
+                trackname = re.split(cfg['separator'], trackname)[1].lstrip()
             except IndexError:
                 pass
 
-            
+        return trackname
 
+    tracknames = [getTrackName(song) for song in songs]
 
-        tracknames.append(trackname)
-
+    arguments['--debug'] and log.debug(f'Tracknames:\n{listItems(tracknames)}')
         
     ### If --notxt == False write txt
     if not arguments['--notxt']:
         # writing timestamps.txt
-        with open('timestamps.txt', 'a') as f:
+        with open('timestamps.txt', 'w') as f:
             n = 0
             t = n + 1
-            f.write(title + '\n\n')
+            lines = [f'{title}\n\n']
 
             curtime = 0
 
@@ -246,7 +297,7 @@ def main():
                 mlength = getMinSec(slength)
                 
                 # writing track info
-                f.write(f'{t} - {tracknames[n]} - {mlength[0]}m{mlength[1]}s - {timestampformat(current)}\n')
+                lines.append(f'{t} - {tracknames[n]} - {mlength[0]}m{mlength[1]}s - {timestampformat(current)}\n')
                 
                 # counter increment
                 n += 1
@@ -256,16 +307,14 @@ def main():
 
             # Getting and writing total length
             mlength = getMinSec(length)
-            f.write(f'\nTotal Length: {mlength[0]}m{mlength[1]}s')
+            lines.append(f'\nTotal Length: {mlength[0]}m{mlength[1]}s')
+
+            f.writelines(lines)
 
             log.debug('Txt file written!')
 
     ### Video
     ## Background
-    # getting size from img
-    ''' img = PIL.Image.open(f'.\\{bgpath}')
-    width, height = img.size '''
-
     # setting bg
     bg = mpy.ImageClip(bgpath)
 
@@ -280,7 +329,7 @@ def main():
     curtime = 3
     for audio in audios:
         t = n + 1
-        txt = mpy.TextClip(f'{t} - {tracknames[n]}', 
+        txt = mpy.TextClip(txt=f'{t} - {tracknames[n]}', 
             font='Calibri', fontsize=30, color='white')
         txt = txt.set_position(('center', 0.80), relative=True)
         txt = txt.set_start((curtime))
@@ -294,26 +343,34 @@ def main():
         n += 1
 
     # Iterate through every audio file
-    def setAudio():
-        setlist = []
-        curtime = 0
-
-        for audio in audios:
-            setlist.append(audio['clip'].set_start(curtime))
-            curtime += audio['duration']
+    def setAudio(audios):
         
-        print(setlist)
+        curtime = 0
+        def setIterator(audio):
+            nonlocal curtime
+            audio['clip'] = audio['clip'].set_start(curtime)
+            curtime += audio['duration']
+            return audio['clip']
+
+        setlist = [setIterator(audio) for audio in audios]     
+        
+        arguments['--debug'] and log.debug(f'Setlist:\n{listItems(setlist)}\n\nCurrenttime:\n{curtime}')
         return setlist
     
     # mixing it all up
     finalvideo = mpy.CompositeVideoClip(videoroll)
-    songmix = mpy.CompositeAudioClip(setAudio())
+    songmix = mpy.CompositeAudioClip(setAudio(audios))
     final = finalvideo.set_audio(songmix)
-    print(final)
-
     
+    arguments['--debug'] and log.debug(f'Final object:\n{final}')
 
-    ''' final.write_videofile(f'{title\}.mp4', threads=4, fps=1, codec="mpeg4") '''
+    # if --test == False then write videofile
+    if not arguments['--test']:
+        # if path given and folder doesn't exist create it
+        Path(title).mkdir(parents=True, exist_ok=True)
+        if title.endswith(cfg['outext']):
+            title.replace(cfg['outext'], '')
+        final.write_videofile(title + cfg['outext'], threads=cfg['threads'], fps=cfg['fps'], codec=cfg['codec'])
 
 if __name__ == '__main__':
     main()
