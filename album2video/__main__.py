@@ -107,7 +107,7 @@ if arguments['--imgmagick']:
 
         f.writelines(lines)
     
-    print('ImgMagick set... exiting\n')
+    print(f'ImgMagick set to: {imgmagick}\n\nExiting...\n')
     exit()
 
 try:
