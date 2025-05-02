@@ -11,7 +11,6 @@ Options:
     -n --notxt              Don't output timestamps.txt
     -t --test               Run program without writing videofile (for test purposes)
     --title=TITLE           Set title beforehand
-    --imgmagick=PATH        Set path to ImageMagick & exit
 
 
 
@@ -29,24 +28,26 @@ Examples:
     album2video --title TheAlbumTitle path/to/mp3 path/to/mp3 path/to/img 
 
 * Requires path to img or path to folder with img
-
-(Needs ImageMagick installed)
 """
 
-import os, pkg_resources, docopt, re, logging
+import os, docopt, re, logging
+import moviepy as mpy
+
+from __init__ import __appversion__ as appversion
+
 log = logging.getLogger(__name__)
 
 # hiding pil debug logs
 pil_logger = logging.getLogger('PIL')
 pil_logger.setLevel(logging.INFO)
 
-__version__ = pkg_resources.require('album2video')[0].version
+__version__ = appversion
 
 arguments = docopt.docopt(__doc__, version=f"Album2Video {__version__}")
 
 from pathlib import Path
-from .PathTool import getPath
-from .config import parsing
+from PathTool import getPath
+from config import parsing
 
 cfg = parsing()
 
@@ -73,52 +74,6 @@ if arguments['--debug']:
     
     log.debug(f'Config:\n {listDict(cfg)}')
 
-
-if arguments['--imgmagick']:
-    import moviepy
-
-    # moviepy.__file__ points to moviepy\__init__.py
-    # so we split '__init__.py' from pathname
-    moviepy_path = os.path.split(moviepy.__file__)[0]
-    # join it with the config filename
-    moviepy_config = os.path.join(moviepy_path, 'config_defaults.py')
-
-    arguments['--debug'] and log.debug('MoviePyConfig: ' + moviepy_config)
-
-    # assign imgmagick path variable
-    imgmagick = getPath(arguments['--imgmagick'])
-    
-    # line with imagemagick_binary found starts false
-    found = False
-
-    with open(moviepy_config, 'r') as f:
-        lines = f.readlines()
-    
-    with open(moviepy_config, 'w') as f:
-        for index, line in enumerate(lines):
-            if line.startswith('IMAGEMAGICK_BINARY'):
-                arguments['--debug'] and log.debug(f'Setting IMAGEMAGICK_BINARY path to: {imgmagick}')
-                lines[index] = f"IMAGEMAGICK_BINARY = os.getenv('IMAGEMAGICK_BINARY', '{imgmagick}')"
-                found = True
-        
-        if found == False:
-            arguments['--debug'] and log.debug(f'Creating IMAGEMAGICK_BINARY = {imgmagick}')
-            lines.append(f"IMAGEMAGICK_BINARY = os.getenv('IMAGEMAGICK_BINARY', '{imgmagick}')")
-
-        f.writelines(lines)
-    
-    print(f'ImgMagick set to: {imgmagick}\n\nExiting...\n')
-    exit()
-
-try:
-    from moviepy import editor as mpy
-except OSError as e:
-    print(e)
-    print('\nSet proper imagemagick_binary path with: album2video --imgmagick path/to/binary\n')
-    exit()
-
-
-
 def main():
     """
     Main Program
@@ -143,10 +98,10 @@ def main():
                 ### For file in directory... parse by extension
                 for file in foldercontent:
                     if file.lower().endswith(cfg['imgext']):
-                        bgpath = getPath(file)
+                        bgpath = path + file
                     
                     elif file.lower().endswith(cfg['audext']):
-                        songs.append(getPath(file))
+                        songs.append(path + file)
 
             ### If path is file... parse by extension
             elif os.path.isfile(path):
@@ -319,7 +274,7 @@ def main():
     bg = mpy.ImageClip(bgpath)
 
     # set img duration = length of all songs added
-    bg = bg.set_duration(length)
+    bg = bg.with_duration(length)
 
     videoroll = [bg]
 
@@ -329,13 +284,13 @@ def main():
     curtime = 3
     for audio in audios:
         t = n + 1
-        txt = mpy.TextClip(txt=f'{t} - {tracknames[n]}', 
-            font='Calibri', fontsize=30, color='white')
-        txt = txt.set_position(('center', 0.80), relative=True)
-        txt = txt.set_start((curtime))
-        txt = txt.set_duration(8)
-        txt = txt.crossfadein(0.6)
-        txt = txt.crossfadeout(0.6)
+        font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'Calibri.otf')
+        txt = mpy.TextClip(font=font_path, text=f'{t} - {tracknames[n]}', 
+            font_size=30, color='white')
+        txt = txt.with_position(('center', 0.80), relative=True)
+        txt = txt.with_start((curtime))
+        txt = txt.with_duration(8)
+        txt = txt.with_effects([mpy.vfx.CrossFadeIn(0.6), mpy.vfx.CrossFadeOut(0.6)])
 
         videoroll.append(txt)
 
@@ -348,7 +303,7 @@ def main():
         curtime = 0
         def setIterator(audio):
             nonlocal curtime
-            audio['clip'] = audio['clip'].set_start(curtime)
+            audio['clip'] = audio['clip'].with_start(curtime)
             curtime += audio['duration']
             return audio['clip']
 
@@ -360,7 +315,7 @@ def main():
     # mixing it all up
     finalvideo = mpy.CompositeVideoClip(videoroll)
     songmix = mpy.CompositeAudioClip(setAudio(audios))
-    final = finalvideo.set_audio(songmix)
+    final = finalvideo.with_audio(songmix)
     
     arguments['--debug'] and log.debug(f'Final object:\n{final}')
 
