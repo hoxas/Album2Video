@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "album2video"
+version = "1.0.0"
+description = "album2video creates an albumvideo(with img as bg) from tracks w/ timestamp output"
+authors = ["Alice Katherine <hoxas@live.com>"]
+license = "UNLICENSE"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+docopt = "^0.6.2"
+moviepy = "^2.1.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
