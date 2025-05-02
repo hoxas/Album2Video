@@ -12,7 +12,6 @@ def getPath(filename):
         pathfile = filename
     else:
         filename = filename.lstrip('/\.')
-        filename = filename.replace('/', '\\')
         pathfile = os.path.join(os.getcwd(), filename)
     
     return pathfile
