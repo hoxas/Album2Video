@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
     
-appversion = '0.0.1'
+appversion = '1.0.0'
 
 
 setup(
@@ -19,14 +19,13 @@ setup(
         'Topic :: Multimedia :: Sound/Audio',
         'License :: Public Domain',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.9'
+        'Programming Language :: Python :: 3.11',
     ],
     keywords = ['audio', 'album', 'video', 'music', 'cli', 'albums', 'edit', 'timestamp', 'youtube'],
-    python_requires = '>=3.6',
+    python_requires = '>=3.11',
     install_requires = [
         'docopt==0.6.2',
-        'moviepy==1.0.3'
+        'moviepy==2.1.2'
     ],
     packages = find_packages(exclude="tests"),
     entry_points = {
