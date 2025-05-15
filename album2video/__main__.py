@@ -9,6 +9,7 @@ Options:
     -v --version            Show version
     -d --debug              Verbose logging
     -n --notxt              Don't output timestamps.txt
+    -c --captions           Add captions
     -t --test               Run program without writing videofile (for test purposes)
     --title=TITLE           Set title beforehand
 
@@ -119,6 +120,8 @@ def main():
     if bgpath == '':
         print('No img given!\nExiting...')
         return 
+    
+    songs = sorted(songs)
     
     def getAudio(song):
         """
@@ -279,23 +282,24 @@ def main():
     videoroll = [bg]
 
     ## Captions
-    n = 0
-    # 3 seconds delay caption
-    curtime = 3
-    for audio in audios:
-        t = n + 1
-        font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'Calibri.otf')
-        txt = mpy.TextClip(font=font_path, text=f'{t} - {tracknames[n]}', 
-            font_size=30, color='white')
-        txt = txt.with_position(('center', 0.80), relative=True)
-        txt = txt.with_start((curtime))
-        txt = txt.with_duration(8)
-        txt = txt.with_effects([mpy.vfx.CrossFadeIn(0.6), mpy.vfx.CrossFadeOut(0.6)])
+    if arguments['--captions']:
+        n = 0
+        # 3 seconds delay caption
+        curtime = 3
+        for audio in audios:
+            t = n + 1
+            font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'Calibri.otf')
+            txt = mpy.TextClip(font=font_path, text=f'{t} - {tracknames[n]}', 
+                font_size=30, color='white')
+            txt = txt.with_position(('center', 0.80), relative=True)
+            txt = txt.with_start((curtime))
+            txt = txt.with_duration(8)
+            txt = txt.with_effects([mpy.vfx.CrossFadeIn(0.6), mpy.vfx.CrossFadeOut(0.6)])
 
-        videoroll.append(txt)
+            videoroll.append(txt)
 
-        curtime += audio['duration']
-        n += 1
+            curtime += audio['duration']
+            n += 1
 
     # Iterate through every audio file
     def setAudio(audios):
