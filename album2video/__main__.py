@@ -16,7 +16,7 @@ Options:
 
 
 Arguments:
-    URL                     Path to folder w/ tracks & img 
+    URL                     Path to folder w/ tracks & img
                                          or
                                 folderpath + img path
                                          or
@@ -26,7 +26,7 @@ Arguments:
 Examples:
     album2video --help
     album2video path/to/folder
-    album2video --title TheAlbumTitle path/to/mp3 path/to/mp3 path/to/img 
+    album2video --title TheAlbumTitle path/to/mp3 path/to/mp3 path/to/img
 
 * Requires path to img or path to folder with img
 """
@@ -44,7 +44,7 @@ pil_logger.setLevel(logging.INFO)
 
 __version__ = appversion
 
-arguments = docopt.docopt(__doc__, version=f"Album2Video {__version__}")
+arguments = docopt.docopt(__doc__, version=f'Album2Video {__version__}')
 
 from pathlib import Path
 from PathTool import getPath
@@ -53,27 +53,27 @@ from config import parsing
 cfg = parsing()
 
 if arguments['--debug']:
-    LOG_FORMAT = "\n%(levelname)s | %(asctime)s §\n%(message)s\n"
-    logging.basicConfig(level=logging.DEBUG,
-                        format=LOG_FORMAT)
+    LOG_FORMAT = '\n%(levelname)s | %(asctime)s §\n%(message)s\n'
+    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
     def listItems(itemlist):
-        itemstring = '-'*32+'\n'
+        itemstring = '-' * 32 + '\n'
         for item in itemlist:
-            itemstring += f"{item}\n"
-        itemstring += '-'*32+'\n'
+            itemstring += f'{item}\n'
+        itemstring += '-' * 32 + '\n'
         return itemstring
-    
+
     log.debug(f'Docopt:\n {arguments}')
 
     def listDict(dict: dict):
-        itemstring = '-'*32+'\n'
+        itemstring = '-' * 32 + '\n'
         for key, value in dict.items():
-            itemstring += f"{key}: {value} - type: {type(value)}\n"
-        itemstring += '-'*32+'\n'
+            itemstring += f'{key}: {value} - type: {type(value)}\n'
+        itemstring += '-' * 32 + '\n'
         return itemstring
-    
+
     log.debug(f'Config:\n {listDict(cfg)}')
+
 
 def main():
     """
@@ -81,12 +81,12 @@ def main():
     """
     songs = []
     bgpath = ''
-    
+
     ### Checking args and parsing again
     if arguments['URL']:
         for path in arguments['URL']:
             path = getPath(path)
-            
+
             ### If path is directory list it
             if os.path.isdir(path):
                 folder = path
@@ -94,13 +94,15 @@ def main():
 
                 foldercontent = os.listdir(folder)
 
-                arguments['--debug'] and log.debug(f'Folder content:\n{listItems(foldercontent)}')
+                arguments['--debug'] and log.debug(
+                    f'Folder content:\n{listItems(foldercontent)}'
+                )
 
                 ### For file in directory... parse by extension
                 for file in foldercontent:
                     if file.lower().endswith(cfg['imgext']):
                         bgpath = path + file
-                    
+
                     elif file.lower().endswith(cfg['audext']):
                         songs.append(path + file)
 
@@ -109,38 +111,37 @@ def main():
                 file = path
                 if file.lower().endswith(cfg['imgext']):
                     bgpath = getPath(file)
-                    
+
                 elif file.lower().endswith(cfg['audext']):
                     songs.append(getPath(file))
     ### If no URL given exit
     else:
         return
-    
+
     ### If no img given exit
     if bgpath == '':
         print('No img given!\nExiting...')
-        return 
-    
+        return
+
     songs = sorted(songs)
-    
+
     def getAudio(song):
         """
         Parse songpath (str)
 
-        return: dict containing: 
+        return: dict containing:
                             - clip: (mpy.AudioFileClip)
-                            - duration: float   
+                            - duration: float
         """
 
         clip = mpy.AudioFileClip(song)
 
         duration = clip.duration
 
-        return {"clip": clip, "duration": duration}
+        return {'clip': clip, 'duration': duration}
 
     ### Parse each song and append to audios[]
     audios = [getAudio(song) for song in songs]
-
 
     def getTotalLength(audios):
         """
@@ -152,27 +153,27 @@ def main():
 
         for audio in audios:
             length += audio['duration']
-    
+
         return length
 
     length = getTotalLength(audios)
-    
-    if arguments['--debug']:
-        _infos = [bgpath, songs, audios, length]      
 
-        informatized = f'''
+    if arguments['--debug']:
+        _infos = [bgpath, songs, audios, length]
+
+        informatized = f"""
         BackgroundPath({type(bgpath)}):\n {bgpath}\n 
         Songs({type(songs[0])}):\n {listItems(songs)}
         Audios({type(audios[0])}):\n {listItems(audios)}
         Total Length({type(length)}): {length}
-        '''
+        """
         log.debug(informatized)
 
     ### Check for title if not given ask for input
     if arguments['--title']:
         title = arguments['--title']
     else:
-        print("Title (outputname): ")
+        print('Title (outputname): ')
         title = input()
 
     arguments['--debug'] and log.debug(f"Title: '{title}'")
@@ -182,7 +183,7 @@ def main():
         """
         Get time(float) in seconds and convert to minutes(int) and seconds(int)
 
-        return: list[minutes(int), seconds(int)] 
+        return: list[minutes(int), seconds(int)]
         """
 
         minutes = round(time // 60)
@@ -212,18 +213,23 @@ def main():
                 stamp += ':'
                 first = False
 
-        return stamp 
+        return stamp
 
     # getting tracknames
     def getTrackName(song):
         trackname = os.path.basename(song)
         for ext in cfg['audext']:
             trackname = trackname.replace(ext, '')
-        
-        arguments['--debug'] and cfg['show_search_result'] and log.debug('Separator search range:' + trackname[1:cfg['ssr']])
+
+        arguments['--debug'] and cfg['show_search_result'] and log.debug(
+            'Separator search range:' + trackname[1 : cfg['ssr']]
+        )
 
         ### Parse tracknames
-        if trackname[0] in [str(i) for i in range(10)] and any(separator in trackname[1:cfg['ssr']] for separator in cfg['separator']):
+        if trackname[0] in [str(i) for i in range(10)] and any(
+            separator in trackname[1 : cfg['ssr']]
+            for separator in cfg['separator']
+        ):
             try:
                 trackname = re.split(cfg['separator'], trackname)[1].lstrip()
             except IndexError:
@@ -234,7 +240,7 @@ def main():
     tracknames = [getTrackName(song) for song in songs]
 
     arguments['--debug'] and log.debug(f'Tracknames:\n{listItems(tracknames)}')
-        
+
     ### If --notxt == False write txt
     if not arguments['--notxt']:
         # writing timestamps.txt
@@ -253,10 +259,12 @@ def main():
                 slength = audios[n]['duration']
                 # song length from seconds(float) to mlength[minutes(int), seconds(int)]
                 mlength = getMinSec(slength)
-                
+
                 # writing track info
-                lines.append(f'{t} - {tracknames[n]} - {mlength[0]}m{mlength[1]}s - {timestampformat(current)}\n')
-                
+                lines.append(
+                    f'{t} - {tracknames[n]} - {mlength[0]}m{mlength[1]}s - {timestampformat(current)}\n'
+                )
+
                 # counter increment
                 n += 1
                 t = n + 1
@@ -288,13 +296,21 @@ def main():
         curtime = 3
         for audio in audios:
             t = n + 1
-            font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'Calibri.otf')
-            txt = mpy.TextClip(font=font_path, text=f'{t} - {tracknames[n]}', 
-                font_size=30, color='white')
+            font_path = os.path.join(
+                os.path.dirname(__file__), 'fonts', 'Calibri.otf'
+            )
+            txt = mpy.TextClip(
+                font=font_path,
+                text=f'{t} - {tracknames[n]}',
+                font_size=30,
+                color='white',
+            )
             txt = txt.with_position(('center', 0.80), relative=True)
             txt = txt.with_start((curtime))
             txt = txt.with_duration(8)
-            txt = txt.with_effects([mpy.vfx.CrossFadeIn(0.6), mpy.vfx.CrossFadeOut(0.6)])
+            txt = txt.with_effects(
+                [mpy.vfx.CrossFadeIn(0.6), mpy.vfx.CrossFadeOut(0.6)]
+            )
 
             videoroll.append(txt)
 
@@ -303,24 +319,27 @@ def main():
 
     # Iterate through every audio file
     def setAudio(audios):
-        
+
         curtime = 0
+
         def setIterator(audio):
             nonlocal curtime
             audio['clip'] = audio['clip'].with_start(curtime)
             curtime += audio['duration']
             return audio['clip']
 
-        setlist = [setIterator(audio) for audio in audios]     
-        
-        arguments['--debug'] and log.debug(f'Setlist:\n{listItems(setlist)}\n\nCurrenttime:\n{curtime}')
+        setlist = [setIterator(audio) for audio in audios]
+
+        arguments['--debug'] and log.debug(
+            f'Setlist:\n{listItems(setlist)}\n\nCurrenttime:\n{curtime}'
+        )
         return setlist
-    
+
     # mixing it all up
     finalvideo = mpy.CompositeVideoClip(videoroll)
     songmix = mpy.CompositeAudioClip(setAudio(audios))
-    final = finalvideo.with_audio(songmix)
-    
+    final: mpy.VideoFileClip = finalvideo.with_audio(songmix)
+
     arguments['--debug'] and log.debug(f'Final object:\n{final}')
 
     # if --test == False then write videofile
@@ -329,7 +348,20 @@ def main():
         Path(title).mkdir(parents=True, exist_ok=True)
         if title.endswith(cfg['outext']):
             title.replace(cfg['outext'], '')
-        final.write_videofile(title + cfg['outext'], threads=cfg['threads'], fps=cfg['fps'], codec=cfg['codec'])
+        
+        if not arguments['--captions']:
+            ffmpeg_params = ['-tune', 'stillimage', '-g', '1']
+        else:
+            ffmpeg_params = None
+        
+        final.write_videofile(
+            title + cfg['outext'],
+            threads=cfg['threads'],
+            fps=cfg['fps'],
+            codec=cfg['codec'],
+            ffmpeg_params=ffmpeg_params,
+        )
+
 
 if __name__ == '__main__':
     main()
