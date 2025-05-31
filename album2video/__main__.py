@@ -10,6 +10,7 @@ Options:
     -d --debug              Verbose logging
     -n --notxt              Don't output timestamps.txt
     -c --captions           Add captions
+    -o --output=PATH        Set output path
     -t --test               Run program without writing videofile (for test purposes)
     --title=TITLE           Set title beforehand
 
@@ -81,11 +82,18 @@ def main():
     """
     songs = []
     bgpath = ''
+    
+    if arguments['--output']:
+        output = getPath(arguments['--output'])
+    else:
+        output = os.getcwd()
+    
+    arguments['--debug'] and log.debug(f'Output: {output}')
 
     ### Checking args and parsing again
     if arguments['URL']:
         for path in arguments['URL']:
-            path = getPath(path)
+            path = getPath(path) + '/'
 
             ### If path is directory list it
             if os.path.isdir(path):
@@ -133,7 +141,11 @@ def main():
                             - clip: (mpy.AudioFileClip)
                             - duration: float
         """
-
+        
+        if not Path(song).exists():
+            log.error(f'File not found: {song}')
+            exit()
+        
         clip = mpy.AudioFileClip(song)
 
         duration = clip.duration
@@ -188,6 +200,10 @@ def main():
 
         minutes = round(time // 60)
         seconds = round(time % 60)
+        
+        if seconds == 60:
+            seconds = 0
+            minutes += 1
 
         return [minutes, seconds]
 
@@ -244,7 +260,8 @@ def main():
     ### If --notxt == False write txt
     if not arguments['--notxt']:
         # writing timestamps.txt
-        with open('timestamps.txt', 'w') as f:
+        Path(output + '/').mkdir(parents=True, exist_ok=True)
+        with open(f'{output}/timestamps.txt', 'w') as f:
             n = 0
             t = n + 1
             lines = [f'{title}\n\n']
@@ -345,7 +362,6 @@ def main():
     # if --test == False then write videofile
     if not arguments['--test']:
         # if path given and folder doesn't exist create it
-        Path(title).mkdir(parents=True, exist_ok=True)
         if title.endswith(cfg['outext']):
             title.replace(cfg['outext'], '')
         
@@ -354,8 +370,11 @@ def main():
         else:
             ffmpeg_params = None
         
+        Path(output).mkdir(parents=True, exist_ok=True)
+        video_output_path = f'{output}/{title}{cfg["outext"]}'
+        
         final.write_videofile(
-            title + cfg['outext'],
+            video_output_path,
             threads=cfg['threads'],
             fps=cfg['fps'],
             codec=cfg['codec'],
