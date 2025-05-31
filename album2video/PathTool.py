@@ -14,6 +14,9 @@ def getPath(filename):
         filename = filename.lstrip('/\.')
         pathfile = os.path.join(os.getcwd(), filename)
     
+    if pathfile.endswith('/'):
+        pathfile.rstrip('/')
+    
     return pathfile
 
 
